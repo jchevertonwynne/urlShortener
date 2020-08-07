@@ -64,23 +64,11 @@ func handleLogin(res http.ResponseWriter, req *http.Request) {
     username := usernames[0]
     password := passwords[0]
 
-    user, err := database.GetUser(username)
-    if err != nil {
+    found := database.VerifyUser(username, password)
+    if !found {
         http.SetCookie(res, &http.Cookie{
             Name:       "error",
             Value:      "User could not be found",
-            Expires:    time.Now().Add(time.Minute),
-            Path:       routeMain,
-        })
-        http.Redirect(res, req, routeLogin, http.StatusSeeOther)
-        return
-        // failed to find user
-    }
-
-    if user.Password != password {
-        http.SetCookie(res, &http.Cookie{
-            Name:       "error",
-            Value:      "Password did not match",
             Expires:    time.Now().Add(time.Minute),
             Path:       routeMain,
         })

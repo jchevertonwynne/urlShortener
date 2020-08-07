@@ -156,8 +156,8 @@ func loggedIn(req *http.Request) (string, error) {
         return "", err
     }
     claims, ok := token.Claims.(jwt.MapClaims)
-    if ok && token.Valid {
-        return claims["username"].(string), nil
+    if !ok || !token.Valid {
+        return "", fmt.Errorf("user could not be verified")
     }
-    return "", fmt.Errorf("user could not be verified")
+    return claims["username"].(string), nil
 }

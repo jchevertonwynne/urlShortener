@@ -3,6 +3,7 @@ package database
 import (
     "fmt"
     "github.com/neo4j/neo4j-go-driver/neo4j"
+    "golang.org/x/crypto/bcrypt"
     "time"
 )
 
@@ -21,6 +22,7 @@ type User struct {
 const (
     serverURL = "bolt://localhost:7687"
     databaseName = "neo4j"
+    bcryptCost   = 10
 )
 
 var (
@@ -81,7 +83,7 @@ func GetUrl(short string) (Record, error) {
     defer session.Close()
 
     data := map[string]interface{}{"short": short}
-    res, err := session.Run("MATCH (u:URL {short:$short}) RETURN u.short as short, u.long as long LIMIT 1", data)
+    res, err := session.Run("MATCH (u:URL {short:$short}) RETURN u.short AS short, u.long AS long, u.created AS created LIMIT 1", data)
     if err != nil {
         return Record{}, err
     }
@@ -131,7 +133,7 @@ func GetUser(username string) (User, error) {
     defer session.Close()
 
     data := map[string]interface{}{"username": username}
-    res, err := session.Run("MATCH (u:USER {username:$username}) RETURN u.username as username, u.password as password, u.created as created LIMIT 1", data)
+    res, err := session.Run("MATCH (u:USER {username:$username}) RETURN u.username AS username, u.password AS password, u.created AS created LIMIT 1", data)
     if err != nil {
         return User{}, err
     }
@@ -162,11 +164,28 @@ func GetUser(username string) (User, error) {
     return User{}, fmt.Errorf("user not found")
 }
 
+func VerifyUser(username, password string) bool {
+    user, err := GetUser(username)
+    if err != nil {
+        return false
+    }
+    err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
+    if err != nil {
+        return false
+    }
+    return true
+}
+
 func AddUser(username, password string) error {
     u, err := GetUser(username)
     if err == nil {
        fmt.Println(u)
        return fmt.Errorf("user %s already exists", username)
+    }
+
+    hashedPass, err := bcrypt.GenerateFromPassword([]byte(password), bcryptCost)
+    if err != nil {
+        return err
     }
 
     driver, err := neo4j.NewDriver(serverURL, neo4j.BasicAuth(dbUsername, dbPassword, ""), func(config *neo4j.Config) {
@@ -187,7 +206,7 @@ func AddUser(username, password string) error {
     }
     defer session.Close()
 
-    data := map[string]interface{}{"username": username, "password": password, "created": neo4j.DateOf(time.Now())}
+    data := map[string]interface{}{"username": username, "password": string(hashedPass), "created": neo4j.DateOf(time.Now())}
     res, err := session.Run("CREATE (u:USER {username:$username, password:$password, created:$created})", data)
     if err != nil {
         return err
