@@ -90,7 +90,6 @@ func handleLogin(res http.ResponseWriter, req *http.Request) {
 
     token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
         "username": username,
-        "nbf":      time.Now().Add(time.Hour),
     })
     signedString, err := token.SignedString(JWTSecret)
     if err != nil {
@@ -111,5 +110,15 @@ func handleLogin(res http.ResponseWriter, req *http.Request) {
         Path:       "/",
     })
 
+    http.Redirect(res, req, routeMain, http.StatusSeeOther)
+}
+
+func handleLogout(res http.ResponseWriter, req *http.Request) {
+    http.SetCookie(res, &http.Cookie{
+        Name:       "login",
+        Value:      "",
+        Expires:    time.Now(),
+        Path:       "/",
+    })
     http.Redirect(res, req, routeMain, http.StatusSeeOther)
 }

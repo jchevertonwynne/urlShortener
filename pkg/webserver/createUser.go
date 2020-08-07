@@ -1,6 +1,7 @@
 package webserver
 
 import (
+    "github.com/dgrijalva/jwt-go"
     "html/template"
     "net/http"
     "time"
@@ -75,6 +76,28 @@ func handleCreation(res http.ResponseWriter, req *http.Request) {
         http.Redirect(res, req, routeCreateUser, http.StatusSeeOther)
         return
     }
+
+    token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+        "username": username,
+    })
+    signedString, err := token.SignedString(JWTSecret)
+    if err != nil {
+        http.SetCookie(res, &http.Cookie{
+            Name:       "error",
+            Value:      "err with signing cookie",
+            Expires:    time.Now().Add(time.Minute),
+            Path:       routeMain,
+        })
+        http.Redirect(res, req, routeLogin, http.StatusSeeOther)
+        return
+    }
+
+    http.SetCookie(res, &http.Cookie{
+        Name:       "login",
+        Value:      signedString,
+        Expires:    time.Now().Add(time.Hour),
+        Path:       "/",
+    })
 
     http.Redirect(res, req, routeMain, http.StatusSeeOther)
 }

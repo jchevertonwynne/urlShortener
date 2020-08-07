@@ -14,7 +14,16 @@
                 </div>
             </a>
             {{ if .LoggedIn }}
-                {{ .LoggedInAs }}
+                <a href="/profile">
+                    <div class="alert alert-secondary" role="alert">
+                        Logged in as: {{ .LoggedInAs }}
+                    </div>
+                </a>
+                <a href="/logout">
+                    <div class="alert alert-secondary" role="alert">
+                        Logout
+                    </div>
+                </a>
             {{ else }}
                 <a href="/createUser">
                     <div class="alert alert-secondary" role="alert">

@@ -2,6 +2,7 @@ package main
 
 import (
     "flag"
+    "fmt"
     "urlShortener/pkg/database"
     "urlShortener/pkg/webserver"
 )
@@ -14,5 +15,8 @@ func main() {
     database.Init(*username, *password)
     webserver.JWTSecret = []byte(*secret)
     server := webserver.Create()
-    server.ListenAndServe()
+    err := server.ListenAndServe()
+    if err != nil {
+        fmt.Println(err)
+    }
 }

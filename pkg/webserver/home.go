@@ -31,25 +31,10 @@ func init() {
 func showHomePage(res http.ResponseWriter, req *http.Request) {
     info := new(homePageInformation)
 
-    loginCookie, err := req.Cookie("login")
+    user, err := loggedIn(req)
     if err == nil {
-        val := loginCookie.Value
-        token, err := jwt.Parse(val, func(token *jwt.Token) (interface{}, error) {
-            _, ok := token.Method.(*jwt.SigningMethodHMAC)
-            if !ok {
-                // TODO
-                return nil, fmt.Errorf("TODO: err msg")
-            }
-            return JWTSecret, nil
-        })
-        if err != nil {
-            // TODO
-        }
-        claims, ok := token.Claims.(jwt.MapClaims)
-        if ok && token.Valid {
-            info.LoggedIn = true
-            info.LoggedInAs = claims["username"].(string)
-        }
+        info.LoggedIn = true
+        info.LoggedInAs = user
     }
 
     errorCookie, err := req.Cookie("error")
@@ -80,7 +65,18 @@ func showHomePage(res http.ResponseWriter, req *http.Request) {
 }
 
 func handleURLUpload(res http.ResponseWriter, req *http.Request) {
-    req.ParseForm()
+    err := req.ParseForm()
+    if err != nil {
+        http.SetCookie(res, &http.Cookie{
+            Name:       "error",
+            Value:      err.Error(),
+            Expires:    time.Now().Add(time.Minute),
+            Path:       "/",
+        })
+        http.Redirect(res, req, "/", http.StatusSeeOther)
+        return
+    }
+
     userURLs, ok := req.Form["url"]
     if !ok || len(userURLs) == 0 || len(userURLs[0]) == 0 {
         http.SetCookie(res, &http.Cookie{
@@ -95,7 +91,7 @@ func handleURLUpload(res http.ResponseWriter, req *http.Request) {
 
     userURL := userURLs[0]
 
-    _, err := url.ParseRequestURI(userURL)
+    _, err = url.ParseRequestURI(userURL)
     if err != nil {
         http.SetCookie(res, &http.Cookie{
             Name:       "error",
@@ -125,6 +121,12 @@ func handleURLUpload(res http.ResponseWriter, req *http.Request) {
         Expires:    time.Now().Add(time.Minute),
         Path:       "/",
     })
+
+    user, err := loggedIn(req)
+    if err == nil {
+        database.Link(user, shortened)
+    }
+
     http.Redirect(res, req, "/", http.StatusSeeOther)
 }
 
@@ -135,4 +137,27 @@ func randomChars() string {
         res[i] = chars[rand.Intn(len(chars))]
     }
     return string(res)
+}
+
+func loggedIn(req *http.Request) (string, error) {
+    loginCookie, err := req.Cookie("login")
+    if err != nil {
+        return "", err
+    }
+    val := loginCookie.Value
+    token, err := jwt.Parse(val, func(token *jwt.Token) (interface{}, error) {
+        _, ok := token.Method.(*jwt.SigningMethodHMAC)
+        if !ok {
+            return nil, fmt.Errorf("method not valid")
+        }
+        return JWTSecret, nil
+    })
+    if err != nil {
+        return "", err
+    }
+    claims, ok := token.Claims.(jwt.MapClaims)
+    if ok && token.Valid {
+        return claims["username"].(string), nil
+    }
+    return "", fmt.Errorf("user could not be verified")
 }
