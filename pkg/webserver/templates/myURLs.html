@@ -32,7 +32,7 @@
             {{ range $url := .URLs }}
                 <div class="card">
                     <div class="card-body">
-                         {{ $url.Short }}: {{ $url.Long }} <a href="{{ $url.Long }}">Link</a>
+                         <a href="/u/{{ $url.Short }}">{{ $url.Short }}</a>: <a href="{{ $url.Long }}">{{ $url.Long }}</a>
                     </div>
                 </div>
             {{ end }}
