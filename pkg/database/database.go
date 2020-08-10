@@ -28,22 +28,23 @@ const (
 var (
 	dbUsername string
 	dbPassword string
+	driver     neo4j.Driver
 )
 
-func Init(username, password string) {
+func Init(username, password string) error {
 	dbUsername = username
 	dbPassword = password
-}
-
-func AddURL(long, short string) error {
-	driver, err := neo4j.NewDriver(serverURL, neo4j.BasicAuth(dbUsername, dbPassword, ""), func(config *neo4j.Config) {
+	d, err := neo4j.NewDriver(serverURL, neo4j.BasicAuth(dbUsername, dbPassword, ""), func(config *neo4j.Config) {
 		config.Encrypted = false
 	})
 	if err != nil {
 		return err
 	}
-	defer driver.Close()
+	driver = d
+	return nil
+}
 
+func AddURL(long, short string) error {
 	sessionConfig := neo4j.SessionConfig{
 		AccessMode:   neo4j.AccessModeWrite,
 		DatabaseName: databaseName,
@@ -64,14 +65,6 @@ func AddURL(long, short string) error {
 }
 
 func GetUrl(short string) (Record, error) {
-	driver, err := neo4j.NewDriver(serverURL, neo4j.BasicAuth(dbUsername, dbPassword, ""), func(config *neo4j.Config) {
-		config.Encrypted = false
-	})
-	if err != nil {
-		return Record{}, err
-	}
-	defer driver.Close()
-
 	sessionConfig := neo4j.SessionConfig{
 		AccessMode:   neo4j.AccessModeRead,
 		DatabaseName: databaseName,
@@ -83,30 +76,17 @@ func GetUrl(short string) (Record, error) {
 	defer session.Close()
 
 	data := map[string]interface{}{"short": short}
-	res, err := session.Run("MATCH (u:URL {short:$short}) RETURN u.short AS short, u.long AS long, u.created AS created LIMIT 1", data)
+	res, err := session.Run("MATCH (u:URL {short:$short}) RETURN u LIMIT 1", data)
 	if err != nil {
 		return Record{}, err
 	}
 
 	for res.Next() {
-		long, ok := res.Record().Get("long")
-		if !ok {
+		node := res.Record().GetByIndex(0).(neo4j.Node)
+		record, err := ParseRecord(node)
+		if err != nil {
 			continue
 		}
-		short, ok := res.Record().Get("short")
-		if !ok {
-			continue
-		}
-		created, ok := res.Record().Get("created")
-		if !ok {
-			continue
-		}
-		record := Record{
-			Short:   short.(string),
-			Long:    long.(string),
-			Created: created.(neo4j.Date).Time(),
-		}
-
 		return record, nil
 	}
 
@@ -114,14 +94,6 @@ func GetUrl(short string) (Record, error) {
 }
 
 func GetUser(username string) (User, error) {
-	driver, err := neo4j.NewDriver(serverURL, neo4j.BasicAuth(dbUsername, dbPassword, ""), func(config *neo4j.Config) {
-		config.Encrypted = false
-	})
-	if err != nil {
-		return User{}, err
-	}
-	defer driver.Close()
-
 	sessionConfig := neo4j.SessionConfig{
 		AccessMode:   neo4j.AccessModeRead,
 		DatabaseName: databaseName,
@@ -133,30 +105,16 @@ func GetUser(username string) (User, error) {
 	defer session.Close()
 
 	data := map[string]interface{}{"username": username}
-	res, err := session.Run("MATCH (u:USER {username:$username}) RETURN u.username AS username, u.password AS password, u.created AS created LIMIT 1", data)
+	res, err := session.Run("MATCH (u:USER {username:$username}) RETURN u LIMIT 1", data)
 	if err != nil {
 		return User{}, err
 	}
 
 	for res.Next() {
-		r := res.Record()
-		username, ok := r.Get("username")
-		if !ok {
+		r := res.Record().GetByIndex(0).(neo4j.Node)
+		user, err := ParseUser(r)
+		if err != nil {
 			continue
-		}
-		password, ok := r.Get("password")
-		if !ok {
-			continue
-		}
-		created, ok := r.Get("created")
-		if !ok {
-			continue
-		}
-
-		user := User{
-			Username: username.(string),
-			Password: password.(string),
-			Created:  created.(neo4j.Date).Time(),
 		}
 		return user, nil
 	}
@@ -174,24 +132,10 @@ func VerifyUser(username, password string) bool {
 }
 
 func AddUser(username, password string) error {
-	u, err := GetUser(username)
-	if err == nil {
-		fmt.Println(u)
-		return fmt.Errorf("user %s already exists", username)
-	}
-
 	hashedPass, err := bcrypt.GenerateFromPassword([]byte(password), bcryptCost)
 	if err != nil {
 		return err
 	}
-
-	driver, err := neo4j.NewDriver(serverURL, neo4j.BasicAuth(dbUsername, dbPassword, ""), func(config *neo4j.Config) {
-		config.Encrypted = false
-	})
-	if err != nil {
-		return err
-	}
-	defer driver.Close()
 
 	sessionConfig := neo4j.SessionConfig{
 		AccessMode:   neo4j.AccessModeWrite,
@@ -213,14 +157,6 @@ func AddUser(username, password string) error {
 }
 
 func Link(username, shortened string) error {
-	driver, err := neo4j.NewDriver(serverURL, neo4j.BasicAuth(dbUsername, dbPassword, ""), func(config *neo4j.Config) {
-		config.Encrypted = false
-	})
-	if err != nil {
-		return err
-	}
-	defer driver.Close()
-
 	sessionConfig := neo4j.SessionConfig{
 		AccessMode:   neo4j.AccessModeWrite,
 		DatabaseName: databaseName,
@@ -241,14 +177,6 @@ func Link(username, shortened string) error {
 }
 
 func GetURLsOf(username string) ([]Record, error) {
-	driver, err := neo4j.NewDriver(serverURL, neo4j.BasicAuth(dbUsername, dbPassword, ""), func(config *neo4j.Config) {
-		config.Encrypted = false
-	})
-	if err != nil {
-		return nil, err
-	}
-	defer driver.Close()
-
 	sessionConfig := neo4j.SessionConfig{
 		AccessMode:   neo4j.AccessModeRead,
 		DatabaseName: databaseName,
@@ -260,7 +188,7 @@ func GetURLsOf(username string) ([]Record, error) {
 	defer session.Close()
 
 	data := map[string]interface{}{"username": username}
-	res, err := session.Run("MATCH (u:URL)--(USER {username:$username}) RETURN u.short AS short, u.long AS long, u.created AS created", data)
+	res, err := session.Run("MATCH (u:URL)--(USER {username:$username}) RETURN u", data)
 	if err != nil {
 		return nil, err
 	}
@@ -268,27 +196,59 @@ func GetURLsOf(username string) ([]Record, error) {
 	var records []Record
 
 	for res.Next() {
-		r := res.Record()
-		short, ok := r.Get("short")
-		if !ok {
+		r := res.Record().GetByIndex(0).(neo4j.Node)
+		record, err := ParseRecord(r)
+		if err != nil {
 			continue
-		}
-		long, ok := r.Get("long")
-		if !ok {
-			continue
-		}
-		created, ok := r.Get("created")
-		if !ok {
-			continue
-		}
-
-		record := Record{
-			Short:   short.(string),
-			Long:    long.(string),
-			Created: created.(neo4j.Date).Time(),
 		}
 		records = append(records, record)
 	}
 
 	return records, nil
+}
+
+func ParseRecord(node neo4j.Node) (Record, error) {
+	props := node.Props()
+
+	short, ok := props["short"]
+	if !ok {
+		return Record{}, fmt.Errorf("short url not found")
+	}
+	long, ok := props["long"]
+	if !ok {
+		return Record{}, fmt.Errorf("long url not found")
+	}
+	created, ok := props["created"]
+	if !ok {
+		return Record{}, fmt.Errorf("created date not found")
+	}
+
+	return Record{
+		Short:   short.(string),
+		Long:    long.(string),
+		Created: created.(neo4j.Date).Time(),
+	}, nil
+}
+
+func ParseUser(node neo4j.Node) (User, error) {
+	props := node.Props()
+
+	username, ok := props["username"]
+	if !ok {
+		return User{}, fmt.Errorf("username not found")
+	}
+	password, ok := props["password"]
+	if !ok {
+		return User{}, fmt.Errorf("password not found")
+	}
+	created, ok := props["created"]
+	if !ok {
+		return User{}, fmt.Errorf("created date not found")
+	}
+
+	return User{
+		Username: username.(string),
+		Password: password.(string),
+		Created:  created.(neo4j.Date).Time(),
+	}, nil
 }
