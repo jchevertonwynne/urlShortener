@@ -122,6 +122,22 @@ func GetUser(username string) (User, error) {
 	return User{}, fmt.Errorf("user not found")
 }
 
+func DeleteUser(username string) error {
+	sessionConfig := neo4j.SessionConfig{
+		AccessMode:   neo4j.AccessModeWrite,
+		DatabaseName: databaseName,
+	}
+	session, err := driver.NewSession(sessionConfig)
+	if err != nil {
+		return err
+	}
+	defer session.Close()
+
+	data := map[string]interface{}{"username": username}
+	_, err = session.Run("MATCH (user:USER {username:$username})-[r:MADE]->(url:URL) DETACH DELETE user DETACH DELETE url", data)
+	return err
+}
+
 func VerifyUser(username, password string) bool {
 	user, err := GetUser(username)
 	if err != nil {

@@ -80,3 +80,30 @@ func handleCreation(res http.ResponseWriter, req *http.Request) {
 
 	http.Redirect(res, req, routeMain, http.StatusSeeOther)
 }
+
+func handleDeleteUser(res http.ResponseWriter, req *http.Request) {
+	username, err := getUsernameCookie(res, req)
+	if err != nil {
+		http.SetCookie(res, &http.Cookie{
+			Name:    "error",
+			Value:   err.Error(),
+			Expires: time.Now().Add(time.Minute),
+			Path:    routeMain,
+		})
+		http.Redirect(res, req, routeMain, http.StatusSeeOther)
+		return
+	}
+	err = database.DeleteUser(username)
+	if err != nil {
+		http.SetCookie(res, &http.Cookie{
+			Name:    "error",
+			Value:   err.Error(),
+			Expires: time.Now().Add(time.Minute),
+			Path:    routeMain,
+		})
+		http.Redirect(res, req, routeMain, http.StatusSeeOther)
+		return
+	}
+	signOutUser(res, req)
+	http.Redirect(res, req, routeMain, http.StatusSeeOther)
+}

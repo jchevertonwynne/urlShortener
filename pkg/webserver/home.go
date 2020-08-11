@@ -65,6 +65,7 @@ func showHomePage(res http.ResponseWriter, req *http.Request) {
 }
 
 func handleURLUpload(res http.ResponseWriter, req *http.Request) {
+	// TODO: option for url request
 	err := req.ParseForm()
 	if err != nil {
 		http.SetCookie(res, &http.Cookie{

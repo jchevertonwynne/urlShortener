@@ -82,12 +82,7 @@ func handleLogin(res http.ResponseWriter, req *http.Request) {
 }
 
 func handleLogout(res http.ResponseWriter, req *http.Request) {
-	http.SetCookie(res, &http.Cookie{
-		Name:    "login",
-		Value:   "",
-		Expires: time.Now(),
-		Path:    "/",
-	})
+	signOutUser(res, req)
 	http.Redirect(res, req, routeMain, http.StatusSeeOther)
 }
 
@@ -113,4 +108,13 @@ func signInUser(username string, res http.ResponseWriter, req *http.Request) (st
 		Path:    "/",
 	})
 	return signedString, nil
+}
+
+func signOutUser(res http.ResponseWriter, req *http.Request) {
+	http.SetCookie(res, &http.Cookie{
+		Name:    "login",
+		Value:   "",
+		Expires: time.Now(),
+		Path:    "/",
+	})
 }

@@ -13,8 +13,10 @@ const (
 	routeLogin      = "/login"
 	routeLogout     = "/logout"
 	routeCreateUser = "/createUser"
+	routeDeleteUser = "/deleteUser"
 	routeMyLinks    = "/profile"
 	routeRedirect   = "/u/{key}"
+	routeDeleteURL  = "/d/{key}"
 )
 
 var jwtSecret []byte
@@ -34,8 +36,10 @@ func create() *http.Server {
 	handler.HandleFunc(routeLogin, mustBeLoggedOut(loginRouteHandler))
 	handler.HandleFunc(routeLogout, logoutRouteHandler)
 	handler.HandleFunc(routeCreateUser, mustBeLoggedOut(createUserHandler))
+	handler.HandleFunc(routeDeleteUser, mustBeLoggedIn(deleteUserHandler))
 	handler.HandleFunc(routeMyLinks, mustBeLoggedIn(myLinksHandler))
 	handler.HandleFunc(routeRedirect, redirectRouteHandler)
+	handler.HandleFunc(routeDeleteURL, deleteURLRouteHandler)
 
 	return &http.Server{
 		Addr:    "0.0.0.0:8000",
@@ -119,6 +123,15 @@ func createUserHandler(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func deleteUserHandler(res http.ResponseWriter, req *http.Request) {
+	switch req.Method {
+	case http.MethodGet:
+		handleDeleteUser(res, req)
+	default:
+		http.Redirect(res, req, routeMain, http.StatusSeeOther)
+	}
+}
+
 func myLinksHandler(res http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodGet:
@@ -143,4 +156,8 @@ func redirectRouteHandler(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	http.Redirect(res, req, url.Long, http.StatusSeeOther)
+}
+
+func deleteURLRouteHandler(res http.ResponseWriter, req *http.Request) {
+	// TODO: user can delete their owned URLs
 }
