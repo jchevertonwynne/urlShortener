@@ -25,16 +25,10 @@ const (
 	bcryptCost   = 10
 )
 
-var (
-	dbUsername string
-	dbPassword string
-	driver     neo4j.Driver
-)
+var driver neo4j.Driver
 
 func Init(username, password string) error {
-	dbUsername = username
-	dbPassword = password
-	d, err := neo4j.NewDriver(serverURL, neo4j.BasicAuth(dbUsername, dbPassword, ""), func(config *neo4j.Config) {
+	d, err := neo4j.NewDriver(serverURL, neo4j.BasicAuth(username, password, ""), func(config *neo4j.Config) {
 		config.Encrypted = false
 	})
 	if err != nil {

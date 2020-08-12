@@ -104,7 +104,14 @@ func handleURLUpload(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	shortened := randomChars()
+	var shortened string
+
+	urlRequest := req.Form["urlRequest"]
+	if len(urlRequest) == 0 || len(urlRequest[0]) == 0 {
+		shortened = randomChars()
+	} else {
+		shortened = urlRequest[0]
+	}
 
 	err = database.AddURL(userURL, shortened)
 	if err != nil {
@@ -114,6 +121,7 @@ func handleURLUpload(res http.ResponseWriter, req *http.Request) {
 			Expires: time.Now().Add(time.Minute),
 			Path:    "/",
 		})
+		http.Redirect(res, req, "/", http.StatusSeeOther)
 		return
 	}
 	http.SetCookie(res, &http.Cookie{
