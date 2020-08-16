@@ -49,8 +49,8 @@ func AddURL(long, short string) error {
 	}
 	defer session.Close()
 
-	data := map[string]interface{}{"long": long, "short": short, "created": neo4j.DateOf(time.Now())}
-	res, err := session.Run("CREATE (u:URL {long:$long, short:$short, created:$created})", data)
+	data := map[string]interface{}{"long": long, "short": short}
+	res, err := session.Run("CREATE (u:URL {long:$long, short:$short, created: datetime({ timezone: 'Europe/London' })})", data)
 	if err != nil {
 		return err
 	}
@@ -157,8 +157,8 @@ func AddUser(username, password string) error {
 	}
 	defer session.Close()
 
-	data := map[string]interface{}{"username": username, "password": string(hashedPass), "created": neo4j.DateOf(time.Now())}
-	res, err := session.Run("CREATE (u:USER {username:$username, password:$password, created:$created})", data)
+	data := map[string]interface{}{"username": username, "password": string(hashedPass)}
+	res, err := session.Run("CREATE (u:USER {username:$username, password:$password, created:datetime({ timezone: 'Europe/London' })})", data)
 	if err != nil {
 		return err
 	}
@@ -217,6 +217,42 @@ func GetURLsOf(username string) ([]Record, error) {
 	return records, nil
 }
 
+func VerifyOwns(username, short string) bool {
+	sessionConfig := neo4j.SessionConfig{
+		AccessMode:   neo4j.AccessModeRead,
+		DatabaseName: databaseName,
+	}
+	session, err := driver.NewSession(sessionConfig)
+	if err != nil {
+		return false
+	}
+	defer session.Close()
+
+	data := map[string]interface{}{"username": username, "short": short}
+	res, err := session.Run("MATCH (u:URL {short: $short})<-[r:MADE]-(USER {username:$username}) RETURN u", data)
+	if err != nil {
+		return false
+	}
+
+	return res.Next()
+}
+
+func DeleteURL(short string) error {
+	sessionConfig := neo4j.SessionConfig{
+		AccessMode:   neo4j.AccessModeWrite,
+		DatabaseName: databaseName,
+	}
+	session, err := driver.NewSession(sessionConfig)
+	if err != nil {
+		return err
+	}
+	defer session.Close()
+
+	data := map[string]interface{}{"short": short}
+	_, err = session.Run("MATCH (url:URL {short: $short}) DETACH DELETE url", data)
+	return err
+}
+
 func ParseRecord(node neo4j.Node) (Record, error) {
 	props := node.Props()
 
@@ -236,7 +272,7 @@ func ParseRecord(node neo4j.Node) (Record, error) {
 	return Record{
 		Short:   short.(string),
 		Long:    long.(string),
-		Created: created.(neo4j.Date).Time(),
+		Created: created.(time.Time),
 	}, nil
 }
 
@@ -259,6 +295,6 @@ func ParseUser(node neo4j.Node) (User, error) {
 	return User{
 		Username: username.(string),
 		Password: password.(string),
-		Created:  created.(neo4j.Date).Time(),
+		Created:  created.(time.Time),
 	}, nil
 }

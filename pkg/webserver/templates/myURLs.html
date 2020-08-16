@@ -28,16 +28,21 @@
                 {{ .Error }}
             </div>
         {{ end }}
+        {{ if .DeletionHappened }}
+            <div class="alert alert-success" role="alert">
+                {{ .Deletion }}
+            </div>
+        {{ end }}
         <div class="card-body">
             {{ range $url := .URLs }}
                 <div class="card">
                     <div class="card-body">
-                         <a href="/u/{{ $url.Short }}">{{ $url.Short }}</a>: <a href="{{ $url.Long }}">{{ $url.Long }}</a>
+                         <a href="/u/{{ $url.Short }}">{{ $url.Short }}</a>: <a href="{{ $url.Long }}">{{ $url.Long }}</a> <a href="/d/{{ $url.Short }}">Delete</a>
                     </div>
                 </div>
             {{ end }}
             <br>
-            <div class="card">
+            <div class="card bg-danger">
                 <a href="/deleteUser">
                     <div class="card-body">
                         Delete Account

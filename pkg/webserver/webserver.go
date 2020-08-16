@@ -39,7 +39,7 @@ func create() *http.Server {
 	handler.HandleFunc(routeDeleteUser, mustBeLoggedIn(deleteUserHandler))
 	handler.HandleFunc(routeMyLinks, mustBeLoggedIn(myLinksHandler))
 	handler.HandleFunc(routeRedirect, redirectRouteHandler)
-	handler.HandleFunc(routeDeleteURL, deleteURLRouteHandler)
+	handler.HandleFunc(routeDeleteURL, mustBeLoggedIn(deleteURLRouteHandler))
 
 	return &http.Server{
 		Addr:    "0.0.0.0:8000",
@@ -156,8 +156,4 @@ func redirectRouteHandler(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	http.Redirect(res, req, url.Long, http.StatusSeeOther)
-}
-
-func deleteURLRouteHandler(res http.ResponseWriter, req *http.Request) {
-	// TODO: user can delete their owned URLs
 }
